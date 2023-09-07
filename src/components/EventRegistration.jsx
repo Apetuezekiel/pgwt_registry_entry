@@ -14,6 +14,7 @@ import emailjs from '@emailjs/browser';
 // import emailjs from 'emailjs-com';
 import showToast from '../utils/ToastUtils'
 import { Link, useNavigate } from "react-router-dom";
+import Spinner from './Spinner';
 
 
 
@@ -39,6 +40,7 @@ function EventRegistrationForm() {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [isImageLoaded, setImageLoaded] = useState(false);
+    const [showPreloader, setShowPreloaded] = useState(false);
 
     const divRef = useRef(null);
     const form = useRef();
@@ -46,7 +48,7 @@ function EventRegistrationForm() {
 
   
     const handleDownloadClick = (e) => {
-        console.log("formData", form.current);
+      setShowPreloaded(true)
         e.preventDefault();
         if (
             !formData.to_firstname ||
@@ -60,15 +62,22 @@ function EventRegistrationForm() {
             return;
           }
 
-        // emailjs.sendForm('service_95ini6l', 'template_22ahgxo', form.current, '720F71y3XxllnZk_a')
-        // .then((result) => {
-        //     console.log(result.text);
-        //     showToast('success', "An email has been sent to your registered email address", 2000);
-        // }, (error) => {
-        //     console.log(error.text);
-        //     showToast('error', "The welcome mail wasnt sent to your registered email. Apologies. We are working on this", 2000);
+        emailjs.sendForm('service_95ini6l', 'template_22ahgxo', form.current, '720F71y3XxllnZk_a')
+        .then((result) => {
+            console.log(result.text);
+            showToast('success', "An email has been sent to your registered email address", 2000);
+        }, (error) => {
+            console.log(error.text);
+            showToast('error', "The welcome mail wasnt sent to your registered email. Apologies. We are working on this", 2000);
 
-        // })
+        })
+
+        emailjs.sendForm('service_95ini6l', 'template_63hjs1h', form.current, '720F71y3XxllnZk_a')
+        .then((result) => {
+            console.log(result.text);
+        }, (error) => {
+            console.log(error.text);
+        })
 
         const divElement = divRef.current;
         if (imageRef.current) {
@@ -91,6 +100,7 @@ function EventRegistrationForm() {
             a.click();
   
             setTimeout(()=> {
+      setShowPreloaded(false)
               navigate('/thanks')
             }, 2500)
           });
@@ -104,7 +114,6 @@ function EventRegistrationForm() {
         ...formData,
         [name]: value,
     });
-    console.log("form.current", form.current);
     };
   
     const handleImageChange = (e) => {
@@ -294,7 +303,7 @@ function EventRegistrationForm() {
             <button style={{backgroundColor: "#528609"}} type="button" className="btn actionBtn btn-secondary ml-2" onClick={() => handleMove('left')}><FaArrowLeft /></button>
             <button style={{backgroundColor: "#528609"}} type="button" className="btn btn-secondary actionBtn ml-2" onClick={() => handleMove('right')}><FaArrowRight /></button>
       </div>
-      <div className="postion-relative">
+      <div className="postion-relative" style={{marginBottom: "30px"}}>
       <div className="form-group position-relative mt-3 p-0" style={{minHeight: "372px"}} ref={divRef}>
             <div className="">
                 <img
@@ -353,6 +362,7 @@ function EventRegistrationForm() {
         </button>
         </div>
       </div>
+      {showPreloader && <Spinner/>}
     </div>
   );
 } 
