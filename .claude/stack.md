@@ -8,7 +8,9 @@ source: bootstrap
 Create React App (react-scripts 5.0.1), React 18.2, react-router-dom v6 (BrowserRouter/Routes in src/App.js), react-bootstrap + bootstrap 5.3 for UI. No TypeScript, no server-side code - pure client-side SPA.
 
 ## Hosting Platform
-Not determinable from CI config - no GitHub Actions, Netlify, or Vercel config files found in the repo. `package.json` sets `"homepage": "https://pgwt.kennyjonesdesigns.com"`, and a pre-built `build.zip` (12MB) is committed at the repo root, indicating deployment is a manual `npm run build` + zip upload to shared/cPanel-style hosting under the kennyjonesdesigns.com domain, not an automated pipeline.
+Two targets as of 2026-09-15:
+- Original: manual `npm run build` + zip upload to shared/cPanel-style hosting under `pgwt.kennyjonesdesigns.com` (`package.json`'s `homepage` field; a pre-built `build.zip` is committed at the repo root as evidence of this flow).
+- New: Vercel project `pgwt_registry_entry` (GitHub-connected, Create React App preset, auto-deployed on push), aliased at `pgwtregistryentry.vercel.app`. See `.claude/services-log.md` and `.claude/decisions-log.md` for context.
 
 ## Database
 None. No backend, no database client in dependencies. All persistence is client-side (form state) plus outbound email via EmailJS.
