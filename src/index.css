@@ -13,6 +13,11 @@ body {
   min-width: 414px;
 }
 
+body.body--full {
+  max-width: 100%;
+  min-width: 0;
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;

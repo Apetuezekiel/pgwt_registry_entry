@@ -1,30 +1,38 @@
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import EventRegistrationTwins from './components/EventRegistration';
-import EventRegistrationReg from './components/EventRegistration2';
-import ThankYouPage from './components/ThankYouPage';
+import ComingSoon from './components/ComingSoon';
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { BrowserRouter, Route, Routes, useNavigate } from "react-router-dom";
-import Spinner from './components/Spinner';
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { useEffect } from 'react';
 
+function AppRoutes() {
+  useEffect(() => {
+    document.body.classList.add('body--full');
+  }, []);
+
+  return (
+    <div className="App App--full">
+      <Routes>
+        <Route path='/register' element={<ComingSoon/>}/>
+        <Route path='*' element={<Navigate to="/register" replace/>}/>
+      </Routes>
+    </div>
+  );
+}
 
 function App() {
   return (
-    <div className="App">
+    <>
       <ToastContainer
         closeOnClick
         pauseOnFocusLoss
         pauseOnHover
       ></ToastContainer>
       <BrowserRouter>
-      <Routes>
-        <Route path='/' element={<EventRegistrationReg/>}/>
-        <Route path='/reg' element={<EventRegistrationReg/>}/>
-        <Route path='/thanks' element={<ThankYouPage/>}/>
-      </Routes>
+        <AppRoutes/>
       </BrowserRouter>
-    </div>
+    </>
   );
 }
 
