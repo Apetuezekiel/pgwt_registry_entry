@@ -7,7 +7,7 @@ import PhotoEditor from './PhotoEditor';
 import { EVENT } from './eventInfo';
 import { ZOOM_MIN, ZOOM_MAX, clampOffsets, initialTransform, panLimits, renderInviteBlob } from './drawInvite';
 import { saveInvite, clearInvite } from './inviteStore';
-import { submitRegistration } from './submitRegistration';
+import { submitRegistration, newAttempt } from './submitRegistration';
 import './register.css';
 
 const DRAFT_KEY = 'pgwt-reg-draft-2026';
@@ -18,15 +18,19 @@ const PAN_STEP = 0.06;
 const EDGE = 0.002;
 const MAX_PHOTO_SIDE = 2400;
 
+// The length limits match api/register.js, which rejects anything beyond them.
 const validators = {
-  to_firstname: (v) => (v.trim() ? '' : 'Enter your first name.'),
-  to_lastname: (v) => (v.trim() ? '' : 'Enter your last name.'),
+  to_firstname: (v) => (!v.trim() ? 'Enter your first name.' : v.trim().length > 80 ? 'Use 80 characters or fewer.' : ''),
+  to_lastname: (v) => (!v.trim() ? 'Enter your last name.' : v.trim().length > 80 ? 'Use 80 characters or fewer.' : ''),
   to_phone: (v) => {
     const digits = v.replace(/[\s()+-]/g, '');
-    return /^\d{7,15}$/.test(digits) ? '' : 'Enter a valid phone number, for example 0803 123 4567.';
+    return /^\d{7,15}$/.test(digits) && v.trim().length <= 30 ? '' : 'Enter a valid phone number, for example 0803 123 4567.';
   },
-  to_email: (v) => (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) ? '' : 'Enter a valid email address.'),
-  to_address: (v) => (v.trim().length >= 5 ? '' : 'Enter your address.'),
+  to_email: (v) => (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) && v.trim().length <= 254 ? '' : 'Enter a valid email address.'),
+  to_address: (v) => {
+    const n = v.replace(/\s+/g, ' ').trim().length;
+    return n < 5 ? 'Enter your address.' : n > 300 ? 'Use 300 characters or fewer.' : '';
+  },
 };
 
 function validate(values) {
@@ -92,6 +96,7 @@ export default function RegisterFlow() {
   const headingRef = useRef(null);
   const panelRef = useRef(null);
   const firstRender = useRef(true);
+  const attempt = useRef(null);
 
   useEffect(() => {
     document.body.classList.add('rg-body');
@@ -243,7 +248,8 @@ export default function RegisterFlow() {
 
     let sent;
     try {
-      sent = await submitRegistration(values, blob);
+      attempt.current = attempt.current || newAttempt();
+      sent = await submitRegistration(values, blob, attempt.current);
     } catch (err) {
       console.error('Registration submit failed', err);
       setSubmitError(
@@ -251,7 +257,9 @@ export default function RegisterFlow() {
           ? "We couldn't reach the server. Check your connection and try again."
           : err.message === 'invalid'
             ? 'Some of your details were not accepted. Go back, check them and try again.'
-            : "We couldn't submit your registration. Please try again in a moment."
+            : err.message === 'rate'
+              ? 'Too many attempts from this connection. Please wait a few minutes and try again.'
+              : "We couldn't submit your registration. Please try again in a moment."
       );
       setSubmitDetail(err.detail || '');
       setSubmitting(false);

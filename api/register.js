@@ -7,6 +7,25 @@ const RESEND_URL = 'https://api.resend.com/emails';
 const MAX_IMAGE_B64 = 4 * 1024 * 1024; // ~3 MB of JPEG; the real invite is well under 1.5 MB
 const SEND_TIMEOUT_MS = 12000;
 
+// Best-effort limiter: counts live in this function instance only, so it slows a script down
+// but is not a hard cap. A Vercel Firewall rate-limit rule on /api/register is the real ceiling.
+const WINDOW_MS = 10 * 60 * 1000;
+const PER_IP = 20; // generous: a church or mobile carrier can put many registrants behind one address
+const PER_EMAIL = 3; // stops one inbox being used as a target
+const hits = new Map();
+
+function overLimit(key, max) {
+  const now = Date.now();
+  if (hits.size > 2000) for (const [k, h] of hits) if (h.reset <= now) hits.delete(k);
+  let h = hits.get(key);
+  if (!h || h.reset <= now) {
+    h = { n: 0, reset: now + WINDOW_MS };
+    hits.set(key, h);
+  }
+  h.n += 1;
+  return h.n > max ? Math.ceil((h.reset - now) / 1000) : 0;
+}
+
 const esc = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const oneLine = (s) => String(s).replace(/[\r\n\t]+/g, ' ').trim();
@@ -140,17 +159,15 @@ module.exports = async (req, res) => {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  // Browsers always send Origin on a cross-site POST; reject any that is not this site.
-  const origin = req.headers.origin;
-  if (origin) {
-    let host = '';
-    try {
-      host = new URL(origin).host;
-    } catch {
-      // malformed origin falls through to the rejection below
-    }
-    if (host !== req.headers.host) return res.status(403).json({ ok: false, error: 'Forbidden' });
+  // Browsers send Origin on every POST, including same-origin ones, so a missing or foreign one is not our page.
+  // Scripts can forge it; the limiter below and the firewall rule are what slow them down.
+  let originHost = '';
+  try {
+    originHost = new URL(req.headers.origin || '').host;
+  } catch {
+    // missing or malformed: rejected below
   }
+  if (!originHost || originHost !== req.headers.host) return res.status(403).json({ ok: false, error: 'Forbidden' });
 
   const { RESEND_API_KEY, RESEND_FROM, ORGANISER_EMAIL } = process.env;
   if (!RESEND_API_KEY || !RESEND_FROM || !ORGANISER_EMAIL) {
@@ -160,6 +177,13 @@ module.exports = async (req, res) => {
 
   const { v, image, id, errors } = parse(req.body);
   if (errors.length) return res.status(400).json({ ok: false, error: `Invalid: ${errors.join(', ')}` });
+
+  const ip = String(req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
+  const wait = overLimit(`ip:${ip}`, PER_IP) || overLimit(`email:${v.email.toLowerCase()}`, PER_EMAIL);
+  if (wait) {
+    res.setHeader('Retry-After', String(wait));
+    return res.status(429).json({ ok: false, error: 'Too many attempts. Please wait a few minutes and try again.' });
+  }
 
   const filename = `PGWT-${EVENT.year}-invite-${v.firstName.replace(/[^\w-]+/g, '') || 'guest'}.jpg`;
   const attachments = [{ filename, content: image }];
@@ -175,12 +199,16 @@ module.exports = async (req, res) => {
   if (!guest.ok) console.error('register: confirmation failed', guest.status, guest.message);
   if (!organiser.ok) console.error('register: organiser notification failed', organiser.status, organiser.message);
 
-  if (!guest.ok && !organiser.ok) {
-    return res.status(502).json({
-      ok: false,
-      error: 'We could not send your registration emails.',
-      detail: `Confirmation: ${guest.status || 'no response'} ${guest.message} · Organiser: ${organiser.status || 'no response'} ${organiser.message}`,
-    });
+  // The organiser email is the only record of the registration, so without it the visitor must see an error and retry.
+  // The retry reuses the same idempotency keys, so a confirmation that already went out is not sent twice.
+  // A failed confirmation alone is fine: the thank-you page lets the visitor download the invite.
+  if (!organiser.ok) {
+    const body = { ok: false, error: 'We could not record your registration.' };
+    // Provider messages stay out of production responses; they are in the function logs.
+    if (process.env.VERCEL_ENV !== 'production') {
+      body.detail = `Organiser: ${organiser.status || 'no response'} ${organiser.message} · Confirmation: ${guest.ok ? 'sent' : `${guest.status || 'no response'} ${guest.message}`}`;
+    }
+    return res.status(502).json(body);
   }
-  return res.status(200).json({ ok: true, confirmation: guest.ok, organiser: organiser.ok });
+  return res.status(200).json({ ok: true, confirmation: guest.ok, organiser: true });
 };

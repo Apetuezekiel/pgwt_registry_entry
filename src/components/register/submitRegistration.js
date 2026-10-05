@@ -9,12 +9,18 @@ const toBase64 = (blob) =>
     reader.readAsDataURL(blob);
   });
 
-// Hash of what is being sent: a retry of the same form reuses the id, so the server never emails twice.
-async function submissionId(values, invite) {
-  const bytes = new TextEncoder().encode(JSON.stringify(values) + invite);
-  if (!window.crypto?.subtle) return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+
+// A random value for one visit to the form. Retries within the visit reuse it; a fresh visit gets a new one.
+export const newAttempt = () => hex(crypto.getRandomValues(new Uint8Array(16)));
+
+// Hash of the attempt plus what is being sent: a retry of the same form reuses the id so the server never emails
+// twice, while registering again later (a new attempt) is never mistaken for a retry.
+async function submissionId(attempt, values, invite) {
+  const bytes = new TextEncoder().encode(attempt + JSON.stringify(values) + invite);
+  if (!window.crypto?.subtle) return newAttempt();
   const digest = await window.crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest).slice(0, 16), (b) => b.toString(16).padStart(2, '0')).join('');
+  return hex(new Uint8Array(digest).slice(0, 16));
 }
 
 export class SubmitError extends Error {
@@ -25,9 +31,9 @@ export class SubmitError extends Error {
 }
 
 // Resolves { confirmation, organiser } when at least one email went out; throws SubmitError otherwise.
-export async function submitRegistration(values, blob) {
+export async function submitRegistration(values, blob, attempt) {
   const invite = await toBase64(blob);
-  const payload = { ...values, invite, submissionId: await submissionId(values, invite) };
+  const payload = { ...values, invite, submissionId: await submissionId(attempt, values, invite) };
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
@@ -52,7 +58,7 @@ export async function submitRegistration(values, blob) {
     // not JSON (for example an HTML error page from the host)
   }
   if (!res.ok || !data.ok) {
-    throw new SubmitError(res.status === 400 ? 'invalid' : 'server', data.detail || data.error || `HTTP ${res.status}`);
+    throw new SubmitError(res.status === 400 ? 'invalid' : res.status === 429 ? 'rate' : 'server', data.detail || data.error || `HTTP ${res.status}`);
   }
   return { confirmation: Boolean(data.confirmation), organiser: Boolean(data.organiser) };
 }
