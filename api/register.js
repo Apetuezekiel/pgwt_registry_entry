@@ -31,7 +31,7 @@ function parse(body) {
   if (!/^[a-f0-9]{32}$/.test(id)) errors.push('submission id');
   // JPEG magic bytes FF D8 FF always encode to "/9j/" in base64.
   if (!image || image.length > MAX_IMAGE_B64 || !image.startsWith('/9j/')) errors.push('invite image');
-  return { v, image, id, errors, honeypot: String(b.company ?? '').trim() !== '' };
+  return { v, image, id, errors };
 }
 
 const LIME = '#528609';
@@ -158,9 +158,8 @@ module.exports = async (req, res) => {
     return res.status(500).json({ ok: false, error: 'Email is not configured on the server.' });
   }
 
-  const { v, image, id, errors, honeypot } = parse(req.body);
+  const { v, image, id, errors } = parse(req.body);
   if (errors.length) return res.status(400).json({ ok: false, error: `Invalid: ${errors.join(', ')}` });
-  if (honeypot) return res.status(200).json({ ok: true, confirmation: true, organiser: true }); // pretend, send nothing
 
   const filename = `PGWT-${EVENT.year}-invite-${v.firstName.replace(/[^\w-]+/g, '') || 'guest'}.jpg`;
   const attachments = [{ filename, content: image }];

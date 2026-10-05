@@ -25,9 +25,9 @@ export class SubmitError extends Error {
 }
 
 // Resolves { confirmation, organiser } when at least one email went out; throws SubmitError otherwise.
-export async function submitRegistration(values, blob, company = '') {
+export async function submitRegistration(values, blob) {
   const invite = await toBase64(blob);
-  const payload = { ...values, invite, company, submissionId: await submissionId(values, invite) };
+  const payload = { ...values, invite, submissionId: await submissionId(values, invite) };
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);

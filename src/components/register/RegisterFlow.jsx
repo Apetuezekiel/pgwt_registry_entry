@@ -92,7 +92,6 @@ export default function RegisterFlow() {
   const headingRef = useRef(null);
   const panelRef = useRef(null);
   const firstRender = useRef(true);
-  const honeypotRef = useRef(''); // kept in a ref: the field only exists on step 1
 
   useEffect(() => {
     document.body.classList.add('rg-body');
@@ -244,7 +243,7 @@ export default function RegisterFlow() {
 
     let sent;
     try {
-      sent = await submitRegistration(values, blob, honeypotRef.current);
+      sent = await submitRegistration(values, blob);
     } catch (err) {
       console.error('Registration submit failed', err);
       setSubmitError(
@@ -377,10 +376,6 @@ export default function RegisterFlow() {
                     <Field id="to_address" label="Address" error={errors.to_address}>
                       <textarea {...fieldProps('to_address')} rows={3} autoComplete="street-address" />
                     </Field>
-
-                    <div className="rg-hp" aria-hidden="true">
-                      <label>Company<input type="text" name="company" tabIndex={-1} autoComplete="off" defaultValue={honeypotRef.current} onChange={(e) => { honeypotRef.current = e.target.value; }} /></label>
-                    </div>
 
                     <div className="rg-actions">
                       <button type="submit" className="rg-btn rg-btn--primary">
