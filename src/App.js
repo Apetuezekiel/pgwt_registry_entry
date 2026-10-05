@@ -1,30 +1,17 @@
 import './App.css';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import EventRegistrationTwins from './components/EventRegistration';
-import EventRegistrationReg from './components/EventRegistration2';
-import ThankYouPage from './components/ThankYouPage';
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import { BrowserRouter, Route, Routes, useNavigate } from "react-router-dom";
-import Spinner from './components/Spinner';
-
+import RegisterFlow from './components/register/RegisterFlow';
+import ThankYou from './components/register/ThankYou';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 function App() {
   return (
-    <div className="App">
-      <ToastContainer
-        closeOnClick
-        pauseOnFocusLoss
-        pauseOnHover
-      ></ToastContainer>
-      <BrowserRouter>
+    <BrowserRouter>
       <Routes>
-        <Route path='/' element={<EventRegistrationReg/>}/>
-        <Route path='/reg' element={<EventRegistrationReg/>}/>
-        <Route path='/thanks' element={<ThankYouPage/>}/>
+        <Route path="/register" element={<RegisterFlow />} />
+        <Route path="/thanks" element={<ThankYou />} />
+        <Route path="*" element={<Navigate to="/register" replace />} />
       </Routes>
-      </BrowserRouter>
-    </div>
+    </BrowserRouter>
   );
 }
 

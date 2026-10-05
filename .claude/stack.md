@@ -1,0 +1,28 @@
+---
+source: bootstrap
+---
+
+# Stack
+
+## Language/Framework
+Create React App (react-scripts 5.0.1), React 18.2, react-router-dom v6 (BrowserRouter/Routes in src/App.js), react-bootstrap + bootstrap 5.3 for UI. No TypeScript, no server-side code - pure client-side SPA.
+
+## Hosting Platform
+Two targets as of 2026-09-15:
+- Original: manual `npm run build` + zip upload to shared/cPanel-style hosting under `pgwt.kennyjonesdesigns.com` (`package.json`'s `homepage` field; a pre-built `build.zip` is committed at the repo root as evidence of this flow).
+- New: Vercel project `pgwt_registry_entry` (GitHub-connected, Create React App preset, auto-deployed on push), aliased at `pgwtregistryentry.vercel.app`. See `.claude/services-log.md` and `.claude/decisions-log.md` for context.
+
+## Database
+None. No database client in dependencies. Persistence is client-side (form state); registration emails go out through Resend (see below).
+
+## Key Third-Party Services
+- Resend (added 2026-10-05, issue #4): server-side email from the Vercel function `api/register.js` (env `RESEND_API_KEY`, `RESEND_FROM`, `ORGANISER_EMAIL`; sending domain praisegodwiththetwins.com). Replaces EmailJS for the routed registration flow.
+- EmailJS (`@emailjs/browser` v3 and legacy `emailjs-com` v3, both present - see `src/components/SendEmails.jsx`) for sending registration confirmation emails directly from the browser, no backend.
+- html2canvas - for generating a shareable image/selfie artifact from the registration form.
+- react-easy-crop / react-image-crop / react-dropzone - image upload and cropping for the invitee photo.
+
+## Known Constraints
+- One Vercel serverless function exists (`api/register.js`, Vercel target only; the cPanel/zip deploy has no `/api`). Local testing needs `vercel dev` (launch config `pgwt-vercel-dev`), since the CRA dev server does not run `/api`. Otherwise client-only SPA: any "coming soon" or new page must be a pure React component/route - no server rendering, no API routes available.
+- react-router-dom v6 `Routes` in `src/App.js` currently has no catch-all/404 route, so any unmatched path (e.g. `/website`) renders blank rather than a 404 page or redirect.
+- Two overlapping EmailJS packages are installed (`@emailjs/browser` and legacy `emailjs-com`) - not a hard constraint, but a sign of incomplete migration worth being aware of before adding more email logic.
+- No test files present despite `@testing-library/*` being installed - `npm test` would run against an empty suite.
