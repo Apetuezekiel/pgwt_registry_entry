@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { FLIER_W, FLIER_H, SLOT, drawInvite, clampOffsets } from './drawInvite';
+import { FLIER_W, FLIER_H, SLOT, PHOTO_R, drawInvite, clampOffsets } from './drawInvite';
 
 const pct = (v, total) => `${(v / total) * 100}%`;
 const SLOT_STYLE = {
-  left: pct(SLOT.cx - SLOT.r, FLIER_W),
-  top: pct(SLOT.cy - SLOT.r, FLIER_H),
-  width: pct(SLOT.r * 2, FLIER_W),
+  left: pct(SLOT.cx - PHOTO_R, FLIER_W),
+  top: pct(SLOT.cy - PHOTO_R, FLIER_H),
+  width: pct(PHOTO_R * 2, FLIER_W),
 };
 const NUDGE = 0.03;
 

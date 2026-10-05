@@ -2,9 +2,14 @@
 // downloaded invite both go through drawInvite, so what people see is what they get.
 export const FLIER_W = 1500;
 export const FLIER_H = 2000;
-// The white photo disc on the flier, in flier pixels. r includes a 2px bleed so no
-// white fringe shows around the photo.
-export const SLOT = { cx: 750, cy: 1458, r: 262 };
+// The photo circle, in flier pixels. The flier's own white disc is r 260 at (750, 1458); this
+// one is larger (room for two people) and is painted over it, so r must stay above the
+// flier's blue rim (about 280) to hide it, and its bottom edge (cy + r) above the info
+// band that starts near y 1780.
+export const SLOT = { cx: 750, cy: 1440, r: 318 };
+const RING = 10;
+// The photo itself sits inside the white ring.
+export const PHOTO_R = SLOT.r - RING;
 export const ZOOM_MIN = 1;
 export const ZOOM_MAX = 4;
 
@@ -57,7 +62,19 @@ export function drawInvite(ctx, width, flier, photo, t) {
   const k = width / FLIER_W;
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(flier, 0, 0, width, FLIER_H * k);
-  if (photo) drawPhoto(ctx, SLOT.cx * k, SLOT.cy * k, SLOT.r * 2 * k, photo, t);
+  const cx = SLOT.cx * k;
+  const cy = SLOT.cy * k;
+  // White disc and a thin blue rim echo the flier's own, at the larger size.
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(cx, cy, SLOT.r * k, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#2b5fb0';
+  ctx.lineWidth = 4 * k;
+  ctx.beginPath();
+  ctx.arc(cx, cy, (SLOT.r - 2) * k, 0, Math.PI * 2);
+  ctx.stroke();
+  if (photo) drawPhoto(ctx, cx, cy, PHOTO_R * 2 * k, photo, t);
 }
 
 export function renderInviteBlob(flier, photo, t) {
