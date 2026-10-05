@@ -18,7 +18,7 @@ export default function PhotoEditor({ photo, transform, onTransform }) {
 
   useEffect(() => {
     const el = wrapRef.current;
-    const ro = new ResizeObserver(([entry]) => setSize(entry.contentRect.width));
+    const ro = new ResizeObserver(() => setSize(canvasRef.current ? canvasRef.current.getBoundingClientRect().width : 0));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -76,7 +76,7 @@ export default function PhotoEditor({ photo, transform, onTransform }) {
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const g = gesture.current;
     if (g.mode === 'pan') {
-      const d = wrapRef.current.getBoundingClientRect().width;
+      const d = canvasRef.current.getBoundingClientRect().width;
       onTransform({ ox: g.ox + (e.clientX - g.x) / d, oy: g.oy + (e.clientY - g.y) / d });
     } else if (g.mode === 'pinch' && pointers.current.size === 2) {
       onTransform({ zoom: clampZoom((g.zoom * distance()) / g.dist) });
@@ -115,6 +115,7 @@ export default function PhotoEditor({ photo, transform, onTransform }) {
       onKeyDown={onKeyDown}
     >
       <canvas ref={canvasRef} className="rg-editor-canvas" />
+      <span className="rg-editor-chip" aria-hidden="true">Drag to move</span>
     </div>
   );
 }

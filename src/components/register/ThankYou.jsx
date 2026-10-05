@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { EVENT } from './eventInfo';
 import { loadInvite } from './inviteStore';
+import markSrc from '../../data/imgg/pgwt_mark.png';
+import qrSrc from '../../data/imgg/pgwt_register_qr.svg';
 import './register.css';
 
 const Arrow = ({ down }) => (
@@ -80,40 +82,37 @@ export default function ThankYou() {
   return (
     <div className="rg rg-thanks">
       <header className="rg-top">
+        <img className="rg-mark" src={markSrc} alt="" width="40" height="40" />
         <span className="rg-wordmark">{EVENT.name}</span>
         <span className="rg-year">{EVENT.year}</span>
+        <a className="rg-enq" href={`tel:${EVENT.enquiries.tel}`}>Enquiries {EVENT.enquiries.display}</a>
       </header>
 
       <main className="rg-shell rg-shell--thanks">
         <section className="rg-done">
-          <div className="rg-check" aria-hidden="true">
-            <span className="rg-check-ring" />
-            <svg viewBox="0 0 48 48" width="48" height="48">
-              <path d="m13 25 8 8 14-17" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" pathLength="1" />
-            </svg>
+          <ol className="rg-steps" aria-label="Progress, all steps complete">
+            {['Details', 'Photo', 'Review'].map((label) => (
+              <li key={label} className="rg-step is-done">
+                <span className="rg-step-inner">
+                  <span className="rg-mk" aria-hidden="true" />
+                  <span className="rg-step-label">{label}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+          <div className="rg-done-title">
+            <span className="rg-badge" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="26" height="26">
+                <path d="m5.5 12.5 4.2 4.2L18.5 7.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" pathLength="1" />
+              </svg>
+            </span>
+            <h1 className="rg-h1">{firstName ? `${firstName}, you're in` : "You're in"}</h1>
           </div>
-          <p className="rg-eyebrow">Registration complete</p>
-          <h1 className="rg-title">
-            {firstName ? `${firstName}, you're in` : "You're in"}. See you at the <span className="rg-script">{EVENT.theme}</span>
-          </h1>
           <p className="rg-lede">
             {state.emailSent
               ? `A confirmation is on its way to ${state.email}. If you don't see it within a few minutes, check your spam folder.`
               : `We couldn't send the confirmation email to ${state.email}, but your registration was received. Download your invite below and keep it safe.`}
           </p>
-
-          {file && (
-            <div className="rg-actions rg-actions--wrap">
-              <button type="button" className="rg-btn rg-btn--primary" onClick={download}>
-                <span>Download invite</span>
-                <span className="rg-btn-icon"><Arrow down /></span>
-              </button>
-              {canShare && (
-                <button type="button" className="rg-btn rg-btn--ghost" onClick={share}>Share</button>
-              )}
-            </div>
-          )}
-          {file && <p className="rg-fine rg-fine--touch">On a phone, press and hold the invite to save it to your photos.</p>}
         </section>
 
         <figure className="rg-invite">
@@ -133,23 +132,44 @@ export default function ThankYou() {
           )}
         </figure>
 
+        {file && (
+          <div className="rg-get">
+            <div className="rg-actions rg-actions--wrap">
+              <button type="button" className="rg-btn rg-btn--primary" onClick={download}>
+                <span>Download invite</span>
+                <span className="rg-btn-icon"><Arrow down /></span>
+              </button>
+              {canShare && (
+                <button type="button" className="rg-btn rg-btn--ghost" onClick={share}>Share</button>
+              )}
+            </div>
+            <p className="rg-fine rg-fine--touch">On a phone, press and hold the invite to save it to your photos.</p>
+          </div>
+        )}
+
         <section className="rg-dates" aria-labelledby="dates-title">
           <h2 className="rg-h2" id="dates-title">Save the dates</h2>
           <ul>
             {EVENT.sessions.map((s) => (
               <li key={s.id}>
-                <div className="rg-date">
-                  <span className="rg-date-day">{s.day}</span>
-                  <span className="rg-date-time">{s.time}</span>
-                </div>
+                <span className="rg-date-day">{s.day}</span>
                 <div className="rg-date-body">
-                  {s.title && <strong>{s.title}</strong>}
-                  {s.venue && <span className="rg-venue">{s.venue}</span>}
+                  <span>
+                    <strong>{s.time}</strong>
+                    {(s.title || s.venue) && ` · ${[s.title, s.venue].filter(Boolean).join(', ')}`}
+                  </span>
                   {s.address && <span className="rg-address">{s.address}</span>}
                 </div>
               </li>
             ))}
           </ul>
+          <div className="rg-share">
+            <img src={qrSrc} alt="QR code that opens praisegodwiththetwins.com/register" width="112" height="112" />
+            <p>
+              <strong>Know someone who should be there?</strong>
+              Show them this code and they can register in a minute.
+            </p>
+          </div>
           <p className="rg-fine">
             Questions? Call <a href={`tel:${EVENT.enquiries.tel}`}>{EVENT.enquiries.display}</a>
           </p>

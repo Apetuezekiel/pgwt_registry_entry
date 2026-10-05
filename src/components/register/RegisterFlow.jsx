@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import emailjs from '@emailjs/browser';
 import flierSrc from '../../data/imgg/pgwt2026_flier.webp';
+import markSrc from '../../data/imgg/pgwt_mark.png';
 import InviteStage from './InviteStage';
 import PhotoEditor from './PhotoEditor';
 import { EVENT } from './eventInfo';
@@ -97,6 +98,7 @@ export default function RegisterFlow() {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [submitDetail, setSubmitDetail] = useState('');
   const fileRef = useRef(null);
   const headingRef = useRef(null);
   const panelRef = useRef(null);
@@ -236,29 +238,56 @@ export default function RegisterFlow() {
   const submit = async () => {
     setSubmitting(true);
     setSubmitError('');
-    const send = (template) => emailjs.send(EMAILJS.service, template, values, EMAILJS.key);
+    setSubmitDetail('');
+
+    // Build the invite first: if that fails, nothing has been sent yet, so a retry cannot double-register.
+    let blob;
     try {
-      const [blob, confirmation, organiser] = await Promise.all([
-        renderInviteBlob(flier, photo, t),
-        withTimeout(send(EMAILJS.confirmation), EMAIL_TIMEOUT_MS).then(() => true, () => false),
-        withTimeout(send(EMAILJS.organiser), EMAIL_TIMEOUT_MS).then(() => true, () => false),
-      ]);
-      if (!confirmation && !organiser) {
-        throw new Error('delivery failed');
-      }
-      await saveInvite(blob);
-      try {
-        sessionStorage.removeItem(DRAFT_KEY);
-      } catch {
-        // ignore
-      }
-      navigate('/thanks', {
-        state: { firstName: values.to_firstname.trim(), email: values.to_email.trim(), emailSent: confirmation },
-      });
-    } catch {
-      setSubmitError("We couldn't submit your registration. Check your connection and try again.");
+      blob = await renderInviteBlob(flier, photo, t);
+    } catch (err) {
+      console.error('Invite render failed', err);
+      setSubmitError("We couldn't build your invite from that photo. Go back, choose a different photo and try again.");
+      setSubmitDetail(err?.message || '');
       setSubmitting(false);
+      return;
     }
+
+    const failures = [];
+    const attempt = (label, template) =>
+      withTimeout(emailjs.send(EMAILJS.service, template, values, EMAILJS.key), EMAIL_TIMEOUT_MS).then(
+        () => true,
+        (err) => {
+          const why = err?.text || err?.message || 'no response';
+          failures.push(`${label} email: ${err?.status ? `${err.status} ` : ''}${why}`);
+          return false;
+        }
+      );
+    const [confirmation, organiser] = await Promise.all([
+      attempt('Confirmation', EMAILJS.confirmation),
+      attempt('Organiser', EMAILJS.organiser),
+    ]);
+
+    if (!confirmation && !organiser) {
+      console.error('Registration email delivery failed', failures);
+      setSubmitError("We couldn't submit your registration. Check your connection and try again.");
+      setSubmitDetail(failures.join(' · '));
+      setSubmitting(false);
+      return;
+    }
+
+    try {
+      await saveInvite(blob);
+    } catch {
+      // The invite can still be rebuilt from the form; do not block a registration that already went through.
+    }
+    try {
+      sessionStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+    navigate('/thanks', {
+      state: { firstName: values.to_firstname.trim(), email: values.to_email.trim(), emailSent: confirmation },
+    });
   };
 
   const startOver = () => {
@@ -288,21 +317,13 @@ export default function RegisterFlow() {
       />
 
       <header className="rg-top">
+        <img className="rg-mark" src={markSrc} alt="" width="40" height="40" />
         <span className="rg-wordmark">{EVENT.name}</span>
         <span className="rg-year">{EVENT.year}</span>
+        <a className="rg-enq" href={`tel:${EVENT.enquiries.tel}`}>Enquiries {EVENT.enquiries.display}</a>
       </header>
 
       <main className="rg-shell">
-        <section className="rg-intro">
-          <p className="rg-eyebrow">21 – 25 October {EVENT.year}</p>
-          <h1 className="rg-title">
-            Claim your place at the <span className="rg-script">{EVENT.theme}</span>
-          </h1>
-          <p className="rg-lede">
-            Register in three quick steps, place your photo on the official flier, and take your personal invite home.
-          </p>
-        </section>
-
         <aside className="rg-preview" aria-label="Invite preview">
           <InviteStage
             flier={flier}
@@ -318,6 +339,7 @@ export default function RegisterFlow() {
         <section className="rg-panel" id="rg-panel" ref={panelRef}>
           <div className="rg-card">
             <div className="rg-card-core">
+              <p className="rg-eyebrow">Registration · 21 – 25 October {EVENT.year}</p>
               <ol className="rg-steps" aria-label="Progress">
                 {STEPS.map((label, i) => (
                   <li
@@ -327,12 +349,12 @@ export default function RegisterFlow() {
                   >
                     {i < step ? (
                       <button type="button" onClick={() => setStep(i)} aria-label={`Go back to ${label}`}>
-                        <span className="rg-step-dot"><Icon d="m5 10.5 3.2 3.2L15 6.8" /></span>
+                        <span className="rg-mk" aria-hidden="true" />
                         <span className="rg-step-label">{label}</span>
                       </button>
                     ) : (
                       <span className="rg-step-inner">
-                        <span className="rg-step-dot">{i + 1}</span>
+                        <span className="rg-mk" aria-hidden="true" />
                         <span className="rg-step-label">{label}</span>
                       </span>
                     )}
@@ -344,7 +366,15 @@ export default function RegisterFlow() {
                 {step === 0 && (
                   <form onSubmit={goDetails} noValidate>
                     <h2 className="rg-h2" tabIndex={-1} ref={headingRef}>Your details</h2>
-                    <p className="rg-sub">We'll send your confirmation here.</p>
+                    <p className="rg-sub">We use these to confirm your seat and send your invite.</p>
+
+                    <div className="rg-peek">
+                      <img src={flierSrc} alt="" width="76" height="101" />
+                      <p>
+                        <strong>Your invite is this flier</strong>
+                        with your photo in the circle.
+                      </p>
+                    </div>
 
                     <div className="rg-row">
                       <Field id="to_firstname" label="First name" error={errors.to_firstname}>
@@ -366,7 +396,7 @@ export default function RegisterFlow() {
 
                     <div className="rg-actions">
                       <button type="submit" className="rg-btn rg-btn--primary">
-                        <span>Continue</span>
+                        <span>Continue to photo</span>
                         <span className="rg-btn-icon"><Arrow /></span>
                       </button>
                     </div>
@@ -375,9 +405,9 @@ export default function RegisterFlow() {
 
                 {step === 1 && (
                   <div>
-                    <h2 className="rg-h2" tabIndex={-1} ref={headingRef}>Your photo</h2>
+                    <h2 className="rg-h2" tabIndex={-1} ref={headingRef}>{photo ? 'Bring your face into view' : 'Add your photo'}</h2>
                     <p className="rg-sub">
-                      {photo ? 'Drag the photo to bring your face into view.' : 'Choose a clear, well-lit photo of your face.'}
+                      {photo ? 'Drag the photo to move it. Zoom until you are happy with the circle.' : 'Choose a clear, well-lit photo of your face.'}
                     </p>
 
                     {!photo ? (
@@ -444,7 +474,7 @@ export default function RegisterFlow() {
                     <div className="rg-actions rg-actions--split">
                       <button type="button" className="rg-btn rg-btn--ghost" onClick={() => setStep(0)}>Back</button>
                       <button type="button" className="rg-btn rg-btn--primary" onClick={goPhoto} disabled={photoBusy}>
-                        <span>Continue</span>
+                        <span>Review</span>
                         <span className="rg-btn-icon"><Arrow /></span>
                       </button>
                     </div>
@@ -464,7 +494,12 @@ export default function RegisterFlow() {
                     </dl>
                     <button type="button" className="rg-link" onClick={() => setStep(0)}>Edit details</button>
 
-                    {submitError && <p className="rg-error rg-error--block" role="alert">{submitError}</p>}
+                    {submitError && (
+                      <p className="rg-error rg-error--block" role="alert">
+                        {submitError}
+                        {submitDetail && <small className="rg-error-detail">Reason: {submitDetail}</small>}
+                      </p>
+                    )}
 
                     <div className="rg-actions rg-actions--split">
                       <button type="button" className="rg-btn rg-btn--ghost" onClick={() => setStep(1)} disabled={submitting}>Back</button>
