@@ -4,8 +4,19 @@
     {
       "name": "pgwt-registry-entry",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["start"],
+      "runtimeArgs": [
+        "start"
+      ],
       "port": 3000
+    },
+    {
+      "name": "pgwt-vercel-dev",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "set -a; . ./.env.local; set +a; exec vercel dev --listen 3100"
+      ],
+      "port": 3100
     }
   ]
 }

@@ -739,3 +739,6 @@
   }
   .rg-badge svg path { stroke-dashoffset: 0; }
 }
+
+/* Honeypot: off-screen for people, still filled in by bots. */
+.rg-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }

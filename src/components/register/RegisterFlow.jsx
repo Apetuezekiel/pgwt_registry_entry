@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import emailjs from '@emailjs/browser';
 import flierSrc from '../../data/imgg/pgwt2026_flier.webp';
 import markSrc from '../../data/imgg/pgwt_mark.png';
 import InviteStage from './InviteStage';
@@ -8,14 +7,9 @@ import PhotoEditor from './PhotoEditor';
 import { EVENT } from './eventInfo';
 import { ZOOM_MIN, ZOOM_MAX, clampOffsets, initialTransform, panLimits, renderInviteBlob } from './drawInvite';
 import { saveInvite, clearInvite } from './inviteStore';
+import { submitRegistration } from './submitRegistration';
 import './register.css';
 
-const EMAILJS = {
-  service: 'service_95ini6l',
-  key: '720F71y3XxllnZk_a',
-  confirmation: 'template_22ahgxo',
-  organiser: 'template_63hjs1h',
-};
 const DRAFT_KEY = 'pgwt-reg-draft-2026';
 const EMPTY = { to_firstname: '', to_lastname: '', to_phone: '', to_email: '', to_address: '' };
 const STEPS = ['Details', 'Photo', 'Review'];
@@ -23,7 +17,6 @@ const IDENTITY = { zoom: 1, rotation: 0, ox: 0, oy: 0 };
 const PAN_STEP = 0.06;
 const EDGE = 0.002;
 const MAX_PHOTO_SIDE = 2400;
-const EMAIL_TIMEOUT_MS = 15000;
 
 const validators = {
   to_firstname: (v) => (v.trim() ? '' : 'Enter your first name.'),
@@ -51,10 +44,6 @@ function readDraft() {
   } catch {
     return EMPTY;
   }
-}
-
-function withTimeout(promise, ms) {
-  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
 }
 
 const Arrow = () => (
@@ -103,6 +92,7 @@ export default function RegisterFlow() {
   const headingRef = useRef(null);
   const panelRef = useRef(null);
   const firstRender = useRef(true);
+  const honeypotRef = useRef(''); // kept in a ref: the field only exists on step 1
 
   useEffect(() => {
     document.body.classList.add('rg-body');
@@ -252,25 +242,19 @@ export default function RegisterFlow() {
       return;
     }
 
-    const failures = [];
-    const attempt = (label, template) =>
-      withTimeout(emailjs.send(EMAILJS.service, template, values, EMAILJS.key), EMAIL_TIMEOUT_MS).then(
-        () => true,
-        (err) => {
-          const why = err?.text || err?.message || 'no response';
-          failures.push(`${label} email: ${err?.status ? `${err.status} ` : ''}${why}`);
-          return false;
-        }
+    let sent;
+    try {
+      sent = await submitRegistration(values, blob, honeypotRef.current);
+    } catch (err) {
+      console.error('Registration submit failed', err);
+      setSubmitError(
+        err.message === 'network'
+          ? "We couldn't reach the server. Check your connection and try again."
+          : err.message === 'invalid'
+            ? 'Some of your details were not accepted. Go back, check them and try again.'
+            : "We couldn't submit your registration. Please try again in a moment."
       );
-    const [confirmation, organiser] = await Promise.all([
-      attempt('Confirmation', EMAILJS.confirmation),
-      attempt('Organiser', EMAILJS.organiser),
-    ]);
-
-    if (!confirmation && !organiser) {
-      console.error('Registration email delivery failed', failures);
-      setSubmitError("We couldn't submit your registration. Check your connection and try again.");
-      setSubmitDetail(failures.join(' · '));
+      setSubmitDetail(err.detail || '');
       setSubmitting(false);
       return;
     }
@@ -286,7 +270,7 @@ export default function RegisterFlow() {
       // ignore
     }
     navigate('/thanks', {
-      state: { firstName: values.to_firstname.trim(), email: values.to_email.trim(), emailSent: confirmation },
+      state: { firstName: values.to_firstname.trim(), email: values.to_email.trim(), emailSent: sent.confirmation },
     });
   };
 
@@ -393,6 +377,10 @@ export default function RegisterFlow() {
                     <Field id="to_address" label="Address" error={errors.to_address}>
                       <textarea {...fieldProps('to_address')} rows={3} autoComplete="street-address" />
                     </Field>
+
+                    <div className="rg-hp" aria-hidden="true">
+                      <label>Company<input type="text" name="company" tabIndex={-1} autoComplete="off" defaultValue={honeypotRef.current} onChange={(e) => { honeypotRef.current = e.target.value; }} /></label>
+                    </div>
 
                     <div className="rg-actions">
                       <button type="submit" className="rg-btn rg-btn--primary">
