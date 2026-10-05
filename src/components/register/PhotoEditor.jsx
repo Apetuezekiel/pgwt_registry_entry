@@ -16,11 +16,20 @@ export default function PhotoEditor({ photo, transform, onTransform }) {
 
   latest.current = transform;
 
+  // Measure on the next frame, not inside the observer callback: updating state there can
+  // resize the observed box again in the same frame ("ResizeObserver loop" error).
   useEffect(() => {
     const el = wrapRef.current;
-    const ro = new ResizeObserver(() => setSize(canvasRef.current ? canvasRef.current.getBoundingClientRect().width : 0));
+    let raf = 0;
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setSize(canvasRef.current ? canvasRef.current.getBoundingClientRect().width : 0));
+    });
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, []);
 
   useEffect(() => {

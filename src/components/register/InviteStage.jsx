@@ -28,12 +28,20 @@ export default function InviteStage({ flier, photo, transform, interactive, onTr
   const drag = useRef(null);
   const [cssWidth, setCssWidth] = useState(0);
 
+  // Measure on the next frame, not inside the observer callback (avoids the "ResizeObserver loop" error).
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return undefined;
-    const ro = new ResizeObserver(([entry]) => setCssWidth(entry.contentRect.width));
+    let raf = 0;
+    const ro = new ResizeObserver(([entry]) => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setCssWidth(entry.contentRect.width));
+    });
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, []);
 
   useEffect(() => {
