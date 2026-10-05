@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import emailjs from '@emailjs/browser';
 import flierSrc from '../../data/imgg/pgwt2026_flier.webp';
 import InviteStage from './InviteStage';
+import PhotoEditor from './PhotoEditor';
 import { EVENT } from './eventInfo';
-import { ZOOM_MIN, ZOOM_MAX, clampOffsets, renderInviteBlob } from './drawInvite';
+import { ZOOM_MIN, ZOOM_MAX, clampOffsets, initialTransform, panLimits, renderInviteBlob } from './drawInvite';
 import { saveInvite, clearInvite } from './inviteStore';
 import './register.css';
 
@@ -18,6 +19,8 @@ const DRAFT_KEY = 'pgwt-reg-draft-2026';
 const EMPTY = { to_firstname: '', to_lastname: '', to_phone: '', to_email: '', to_address: '' };
 const STEPS = ['Details', 'Photo', 'Review'];
 const IDENTITY = { zoom: 1, rotation: 0, ox: 0, oy: 0 };
+const PAN_STEP = 0.06;
+const EDGE = 0.002;
 const MAX_PHOTO_SIDE = 2400;
 const EMAIL_TIMEOUT_MS = 15000;
 
@@ -87,6 +90,7 @@ export default function RegisterFlow() {
   const [values, setValues] = useState(readDraft);
   const [errors, setErrors] = useState({});
   const [flier, setFlier] = useState(null);
+  const [flierFailed, setFlierFailed] = useState(false);
   const [photo, setPhoto] = useState(null);
   const [t, setT] = useState(IDENTITY);
   const [photoError, setPhotoError] = useState('');
@@ -104,9 +108,23 @@ export default function RegisterFlow() {
   }, []);
 
   useEffect(() => {
-    const img = new Image();
-    img.src = flierSrc;
-    img.decode().then(() => setFlier(img)).catch(() => {});
+    let cancelled = false;
+    let tries = 0;
+    const load = () => {
+      const img = new Image();
+      img.onload = () => !cancelled && setFlier(img);
+      img.onerror = () => {
+        if (cancelled) return;
+        tries += 1;
+        if (tries < 3) setTimeout(load, 600 * tries);
+        else setFlierFailed(true);
+      };
+      img.src = flierSrc;
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -173,7 +191,7 @@ export default function RegisterFlow() {
       canvas.height = Math.round(img.naturalHeight * scale);
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
       setPhoto(canvas);
-      setT(IDENTITY);
+      setT(initialTransform(canvas));
     } catch {
       setPhotoError("We couldn't read that image. Try a JPG or PNG.");
     } finally {
@@ -184,12 +202,28 @@ export default function RegisterFlow() {
 
   const pickPhoto = useCallback(() => fileRef.current?.click(), []);
 
-  const setZoom = (zoom) => setT((cur) => ({ ...cur, zoom, ...clampOffsets(photo, { ...cur, zoom }) }));
+  // Every change goes through here so the circle is always fully covered by the photo.
+  // Zooming keeps whatever is under the circle's centre in place, so a face that is in
+  // view stays in view.
+  const updateT = useCallback(
+    (partial) =>
+      setT((cur) => {
+        const next = { ...cur, ...partial };
+        if (partial.zoom !== undefined && partial.ox === undefined && partial.oy === undefined) {
+          const k = next.zoom / cur.zoom;
+          next.ox = cur.ox * k;
+          next.oy = cur.oy * k;
+        }
+        return photo ? { ...next, ...clampOffsets(photo, next) } : next;
+      }),
+    [photo]
+  );
+  // Rotate about the circle's centre: the offset turns with the photo.
   const rotate = (dir) =>
-    setT((cur) => {
-      const rotation = cur.rotation + dir * 90;
-      return { ...cur, rotation, ...clampOffsets(photo, { ...cur, rotation }) };
-    });
+    updateT({ rotation: t.rotation + dir * 90, ox: dir > 0 ? -t.oy : t.oy, oy: dir > 0 ? t.ox : -t.ox });
+  const pan = (dx, dy) => updateT({ ox: t.ox + dx, oy: t.oy + dy });
+  const limits = photo ? panLimits(photo, t) : { mx: 0, my: 0 };
+  const noRoom = limits.mx < EDGE && limits.my < EDGE;
 
   const goPhoto = () => {
     if (!photo) {
@@ -275,7 +309,8 @@ export default function RegisterFlow() {
             photo={photo}
             transform={t}
             interactive={step === 1}
-            onTransform={(o) => setT((cur) => ({ ...cur, ...o }))}
+            onTransform={updateT}
+            failed={flierFailed}
             onPick={pickPhoto}
           />
         </aside>
@@ -342,7 +377,7 @@ export default function RegisterFlow() {
                   <div>
                     <h2 className="rg-h2" tabIndex={-1} ref={headingRef}>Your photo</h2>
                     <p className="rg-sub">
-                      {photo ? 'Drag the photo on the flier to reposition it.' : 'Choose a clear, well-lit photo of your face.'}
+                      {photo ? 'Drag the photo to bring your face into view.' : 'Choose a clear, well-lit photo of your face.'}
                     </p>
 
                     {!photo ? (
@@ -353,6 +388,13 @@ export default function RegisterFlow() {
                       </button>
                     ) : (
                       <div className="rg-tools">
+                        <PhotoEditor photo={photo} transform={t} onTransform={updateT} />
+                        <p className="rg-hint" aria-live="polite">
+                          {noRoom
+                            ? 'Zoom in to move your photo around.'
+                            : 'Drag, or use the arrows, to bring your face into the circle.'}
+                        </p>
+
                         <label className="rg-range" style={{ '--fill': zoomFill }}>
                           <span>Zoom</span>
                           <input
@@ -361,10 +403,28 @@ export default function RegisterFlow() {
                             max={ZOOM_MAX}
                             step="0.01"
                             value={t.zoom}
-                            onChange={(e) => setZoom(Number(e.target.value))}
+                            onChange={(e) => updateT({ zoom: Number(e.target.value) })}
                             aria-label="Zoom"
                           />
                         </label>
+
+                        <div className="rg-move" role="group" aria-label="Move photo">
+                          <span className="rg-move-label">Move</span>
+                          <button type="button" className="rg-iconbtn" aria-label="Move photo up" disabled={t.oy <= -limits.my + EDGE} onClick={() => pan(0, -PAN_STEP)}>
+                            <Icon d="M10 15V5m0 0L5.5 9.5M10 5l4.5 4.5" />
+                          </button>
+                          <button type="button" className="rg-iconbtn" aria-label="Move photo down" disabled={t.oy >= limits.my - EDGE} onClick={() => pan(0, PAN_STEP)}>
+                            <Icon d="M10 5v10m0 0-4.5-4.5M10 15l4.5-4.5" />
+                          </button>
+                          <button type="button" className="rg-iconbtn" aria-label="Move photo left" disabled={t.ox <= -limits.mx + EDGE} onClick={() => pan(-PAN_STEP, 0)}>
+                            <Icon d="M15 10H5m0 0 4.5-4.5M5 10l4.5 4.5" />
+                          </button>
+                          <button type="button" className="rg-iconbtn" aria-label="Move photo right" disabled={t.ox >= limits.mx - EDGE} onClick={() => pan(PAN_STEP, 0)}>
+                            <Icon d="M5 10h10m0 0-4.5-4.5M15 10l-4.5 4.5" />
+                          </button>
+                          <button type="button" className="rg-chip rg-chip--quiet" onClick={() => updateT(initialTransform(photo))}>Reset</button>
+                        </div>
+
                         <div className="rg-chips">
                           <button type="button" className="rg-chip" onClick={() => rotate(-1)}>
                             <Icon d="M5 8.5A5.5 5.5 0 1 1 5.6 14M5 4v4.5h4.5" /> Rotate left

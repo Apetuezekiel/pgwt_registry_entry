@@ -21,7 +21,7 @@ function CameraIcon() {
   );
 }
 
-export default function InviteStage({ flier, photo, transform, interactive, onTransform, onPick }) {
+export default function InviteStage({ flier, photo, transform, interactive, onTransform, onPick, failed }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
   const slotRef = useRef(null);
@@ -78,6 +78,9 @@ export default function InviteStage({ flier, photo, transform, interactive, onTr
         role="img"
         aria-label="Your invite preview on the Praise God with the Twins 2026 flier"
       />
+      {failed && (
+        <p className="rg-stage-note" role="alert">We couldn't load the flier. Refresh the page to try again.</p>
+      )}
       {!photo && interactive && (
         <button type="button" className="rg-slot rg-slot--add" style={SLOT_STYLE} onClick={onPick}>
           <CameraIcon />
