@@ -5,7 +5,7 @@ source: bootstrap
 # Stack
 
 ## Language/Framework
-Create React App (react-scripts 5.0.1), React 18.2, react-router-dom v6 (BrowserRouter/Routes in src/App.js), react-bootstrap + bootstrap 5.3 for UI. No TypeScript, no server-side code - pure client-side SPA.
+Create React App (react-scripts 5.0.1), React 18.2, react-router-dom v6 (BrowserRouter/Routes in src/App.js). The UI is hand-written CSS (src/components/register/register.css) with no UI library. No TypeScript. Client-side SPA plus one Vercel serverless function (api/register.js).
 
 ## Hosting Platform
 Two targets as of 2026-09-15:
@@ -18,8 +18,6 @@ Prisma Postgres (Vercel Marketplace, Free plan, region iad1), database `pgwt-reg
 ## Key Third-Party Services
 - Prisma Postgres via Vercel Marketplace (added 2026-10-05, issue #6): stores one row per registration so the organiser can count and export sign-ups.
 - Resend (added 2026-10-05, issue #4): server-side email from the Vercel function `api/register.js` (env `RESEND_API_KEY`, `RESEND_FROM`, `ORGANISER_EMAIL`; sending domain praisegodwiththetwins.com). Replaces EmailJS for the routed registration flow.
-- html2canvas - for generating a shareable image/selfie artifact from the registration form.
-- react-easy-crop / react-image-crop / react-dropzone - image upload and cropping for the invitee photo.
 
 ## Known Constraints
 - One Vercel serverless function exists (`api/register.js`, Vercel target only; the cPanel/zip deploy has no `/api`). Local testing needs `vercel dev` (launch config `pgwt-vercel-dev`), since the CRA dev server does not run `/api`. Otherwise client-only SPA: any "coming soon" or new page must be a pure React component/route - no server rendering, no API routes available.
