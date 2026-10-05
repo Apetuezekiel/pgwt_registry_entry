@@ -6,16 +6,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* background-color: #051C03; */
+  background-color: #050c1c;
   overflow-x: hidden;
-  
-  max-width: 414px;
-  min-width: 414px;
-}
-
-body.body--full {
-  max-width: 100%;
-  min-width: 0;
 }
 
 code {
