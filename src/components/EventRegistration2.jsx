@@ -3,7 +3,7 @@ import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 // import inviteImg from '../data/imgg/flier_twins.PNG'
 // import inviteImg from '../data/imgg/flier_twins2.png'
-import inviteImg from '../data/imgg/flier2.png'
+import inviteImg from '../data/imgg/pgwt2026_flier.webp'
 import { FaArrowUp, FaArrowDown, FaArrowLeft, FaArrowRight, FaUndo, FaRedo, FaPlus, FaMinus, FaFacebookSquare, FaTwitter } from 'react-icons/fa';
 import { BsZoomIn,  BsZoomOut} from 'react-icons/fa';
 import { BsFillCloudDownloadFill, BsFillCameraFill, BsPersonFillCheck} from 'react-icons/bs';
@@ -13,10 +13,22 @@ import Draggable from 'react-draggable';
 import emailjs from '@emailjs/browser';
 // import emailjs from 'emailjs-com';
 import showToast from '../utils/ToastUtils'
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Spinner from './Spinner';
 
 
+
+const FLIER_NATIVE_WIDTH = 1500;
+
+// The photo circle on the 2026 flier (1500x2000): 520px white disc centred at
+// (750, 1458), plus a 2px bleed so no white fringe shows around the photo.
+// Expressed as % of the flier so it holds at any rendered width.
+const PHOTO_SLOT = {
+    left: `${(488 / 1500) * 100}%`,
+    top: `${(1196 / 2000) * 100}%`,
+    width: `${(524 / 1500) * 100}%`,
+    aspectRatio: '1 / 1',
+};
 
 function EventRegistrationForm() {
     const [image, setImage] = useState(null);
@@ -24,8 +36,8 @@ function EventRegistrationForm() {
     const [rotation, setRotation] = useState(0);
     const [zoom, setZoom] = useState(1);
     const imageRef = useRef(null);
-    const [xAxis, setXAxis] = useState(107);
-    const [yAxis, setYAxis] = useState(6);
+    const [xAxis, setXAxis] = useState(0);
+    const [yAxis, setYAxis] = useState(0);
     const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [imageDataUrl, setImageDataUrl] = useState('');
@@ -85,9 +97,8 @@ function EventRegistrationForm() {
             setImageLoaded(true);
           });
         }
-        const dpi = 300;
-      
-        const scaleFactor = dpi / 96;
+        // Render at the flier's native 1500px width so the download isn't downsampled
+        const scaleFactor = FLIER_NATIVE_WIDTH / divElement.offsetWidth;
 
         // if (isImageLoaded && divRef.current){
           html2canvas(divElement, {
@@ -218,7 +229,7 @@ function EventRegistrationForm() {
         style={{backgroundColor: "#528609", padding: "10px", color: "white" }}
         className='mb-5 headerMain'
         >
-      <h3 className="text-center" style={{textTransform: "uppercase", fontFamily: "monospace", fontWeight: "600"}}>Praise God with the Twins 2023</h3>
+      <h3 className="text-center" style={{textTransform: "uppercase", fontFamily: "monospace", fontWeight: "600"}}>Praise God with the Twins 2026</h3>
           
       <h5 className='text-center'>Invitee Selfie Generator</h5>
       <BsPersonFillCheck className="text-center" color='#FFFFFF' size="32"/>
@@ -226,7 +237,7 @@ function EventRegistrationForm() {
         <hr />
       <form ref={form} id="registrationForm" className='position-relative'>
         <div className="form-group">
-        <div className='mb-3'><em> <b>NOTICE:</b> This form is specifically for the Twins. If you are not among the twins, <b style={{textDecoration: "underline"}}><Link to="https://pgwt.kennyjonesdesigns.com/reg/">click here</Link></b></em></div>
+        <div className='mb-3'><em> <b>NOTICE:</b> This form is specifically for the Twins.</em></div>
         <label htmlFor="to_firstname">First Name:</label>
         <input
           type="text"
@@ -304,35 +315,33 @@ function EventRegistrationForm() {
             <button style={{backgroundColor: "#528609"}} type="button" className="btn btn-secondary actionBtn ml-2" onClick={() => handleMove('right')}><FaArrowRight /></button>
       </div>
       <div className="postion-relative" style={{marginBottom: "30px"}}>
-      <div className="form-group position-relative mt-3 p-0" style={{minHeight: "372px"}} ref={divRef}>
-            <div className="">
-                <img
-                    src={inviteImg}
-                    alt="Invite Graphic"
-                    className="img-fluid position-absolute"
-                    style={{
-                        position: 'absolute',
-                        top: "0",
-                    }}
-                />
-                <div>
-                    {image && (
-                        <img
-                            ref={imageRef}
-                            src={image}
-                            alt="Uploaded Image"
-                            className="img-fluid inviteeAvatar position-absolute top-0"
-                            draggable="true"
-                            style={{
-                                objectFit: "cover",
-                                borderRadius: "50%",
-                                transform: `scale(${zoom}) translate(${xAxis}px, ${yAxis}px) rotate(${rotation}deg)`,
-                                ...crop,
-                            }}
-                        />
-                    )}
+      <div className="form-group position-relative mt-3 p-0" ref={divRef}>
+            <img
+                src={inviteImg}
+                alt="Invite Graphic"
+                className="img-fluid d-block w-100"
+            />
+            {image && (
+                <div
+                    className="position-absolute overflow-hidden"
+                    style={{ ...PHOTO_SLOT, borderRadius: "50%" }}
+                >
+                    <img
+                        ref={imageRef}
+                        src={image}
+                        alt="Uploaded Image"
+                        className="inviteeAvatar"
+                        draggable="false"
+                        style={{
+                            display: "block",
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            transform: `translate(${xAxis}px, ${yAxis}px) rotate(${rotation}deg) scale(${zoom})`,
+                        }}
+                    />
                 </div>
-            </div>
+            )}
         </div>
         <div className='downloadCTN' style={{
             //  position: "absolute",
