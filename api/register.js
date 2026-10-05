@@ -1,7 +1,8 @@
-// POST /api/register: validates a registration and sends two emails through Resend
+// POST /api/register: validates a registration, saves it to Postgres and sends two emails through Resend
 // (confirmation with the invite attached to the registrant, notification to the organiser).
-// Env: RESEND_API_KEY, RESEND_FROM, ORGANISER_EMAIL. The key never reaches the browser.
+// Env: RESEND_API_KEY, RESEND_FROM, ORGANISER_EMAIL, DATABASE_URL. None of them reaches the browser.
 const EVENT = require('./_event');
+const { saveRegistration } = require('./_db');
 
 const RESEND_URL = 'https://api.resend.com/emails';
 const MAX_IMAGE_B64 = 4 * 1024 * 1024; // ~3 MB of JPEG; the real invite is well under 1.5 MB
@@ -191,24 +192,32 @@ module.exports = async (req, res) => {
   const toOrganiser = notification(v);
 
   // The key is a hash of the submission, so a retry of the same form never sends twice.
-  const [guest, organiser] = await Promise.all([
+  // The database write runs alongside the emails: a registration counts as recorded if either lands.
+  const [guest, organiser, saved] = await Promise.all([
     send({ from: RESEND_FROM, to: [v.email], reply_to: ORGANISER_EMAIL, ...toGuest, attachments }, `${id}-guest`),
     send({ from: RESEND_FROM, to: [ORGANISER_EMAIL], reply_to: v.email, ...toOrganiser, attachments }, `${id}-organiser`),
+    saveRegistration(id, v).then(
+      () => true,
+      (err) => {
+        console.error('register: database save failed', err.message);
+        return false;
+      }
+    ),
   ]);
 
   if (!guest.ok) console.error('register: confirmation failed', guest.status, guest.message);
   if (!organiser.ok) console.error('register: organiser notification failed', organiser.status, organiser.message);
 
-  // The organiser email is the only record of the registration, so without it the visitor must see an error and retry.
-  // The retry reuses the same idempotency keys, so a confirmation that already went out is not sent twice.
+  // Without the saved row or the organiser email nothing records this registration, so the visitor must see an
+  // error and retry. The retry reuses the same idempotency keys, so a confirmation already sent is not sent twice.
   // A failed confirmation alone is fine: the thank-you page lets the visitor download the invite.
-  if (!organiser.ok) {
+  if (!saved && !organiser.ok) {
     const body = { ok: false, error: 'We could not record your registration.' };
     // Provider messages stay out of production responses; they are in the function logs.
     if (process.env.VERCEL_ENV !== 'production') {
-      body.detail = `Organiser: ${organiser.status || 'no response'} ${organiser.message} · Confirmation: ${guest.ok ? 'sent' : `${guest.status || 'no response'} ${guest.message}`}`;
+      body.detail = `Organiser: ${organiser.status || 'no response'} ${organiser.message} · Confirmation: ${guest.ok ? 'sent' : `${guest.status || 'no response'} ${guest.message}`} · Database: failed`;
     }
     return res.status(502).json(body);
   }
-  return res.status(200).json({ ok: true, confirmation: guest.ok, organiser: true });
+  return res.status(200).json({ ok: true, confirmation: guest.ok, organiser: organiser.ok, saved });
 };

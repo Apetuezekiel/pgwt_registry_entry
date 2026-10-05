@@ -13,9 +13,10 @@ Two targets as of 2026-09-15:
 - New: Vercel project `pgwt_registry_entry` (GitHub-connected, Create React App preset, auto-deployed on push), aliased at `pgwtregistryentry.vercel.app`. See `.claude/services-log.md` and `.claude/decisions-log.md` for context.
 
 ## Database
-None. No database client in dependencies. Persistence is client-side (form state); registration emails go out through Resend (see below).
+Prisma Postgres (Vercel Marketplace, Free plan, region iad1), database `pgwt-registrations`, connected to the Vercel project for Production and Preview (env `DATABASE_URL`, also `POSTGRES_URL` and `PRISMA_DATABASE_URL`). One table, `registrations`, written from `api/register.js` through `pg` (`api/_db.js`). Rows are tagged `env` (production, preview) so test sign-ups stay out of the real count. Created and read with `scripts/registrations.js` (see its header for the commands). The cPanel/zip deploy has no `/api`, so it never writes here.
 
 ## Key Third-Party Services
+- Prisma Postgres via Vercel Marketplace (added 2026-10-05, issue #6): stores one row per registration so the organiser can count and export sign-ups.
 - Resend (added 2026-10-05, issue #4): server-side email from the Vercel function `api/register.js` (env `RESEND_API_KEY`, `RESEND_FROM`, `ORGANISER_EMAIL`; sending domain praisegodwiththetwins.com). Replaces EmailJS for the routed registration flow.
 - EmailJS (`@emailjs/browser` v3 and legacy `emailjs-com` v3, both present - see `src/components/SendEmails.jsx`) for sending registration confirmation emails directly from the browser, no backend.
 - html2canvas - for generating a shareable image/selfie artifact from the registration form.
