@@ -18,12 +18,10 @@ Prisma Postgres (Vercel Marketplace, Free plan, region iad1), database `pgwt-reg
 ## Key Third-Party Services
 - Prisma Postgres via Vercel Marketplace (added 2026-10-05, issue #6): stores one row per registration so the organiser can count and export sign-ups.
 - Resend (added 2026-10-05, issue #4): server-side email from the Vercel function `api/register.js` (env `RESEND_API_KEY`, `RESEND_FROM`, `ORGANISER_EMAIL`; sending domain praisegodwiththetwins.com). Replaces EmailJS for the routed registration flow.
-- EmailJS (`@emailjs/browser` v3 and legacy `emailjs-com` v3, both present - see `src/components/SendEmails.jsx`) for sending registration confirmation emails directly from the browser, no backend.
 - html2canvas - for generating a shareable image/selfie artifact from the registration form.
 - react-easy-crop / react-image-crop / react-dropzone - image upload and cropping for the invitee photo.
 
 ## Known Constraints
 - One Vercel serverless function exists (`api/register.js`, Vercel target only; the cPanel/zip deploy has no `/api`). Local testing needs `vercel dev` (launch config `pgwt-vercel-dev`), since the CRA dev server does not run `/api`. Otherwise client-only SPA: any "coming soon" or new page must be a pure React component/route - no server rendering, no API routes available.
 - react-router-dom v6 `Routes` in `src/App.js` currently has no catch-all/404 route, so any unmatched path (e.g. `/website`) renders blank rather than a 404 page or redirect.
-- Two overlapping EmailJS packages are installed (`@emailjs/browser` and legacy `emailjs-com`) - not a hard constraint, but a sign of incomplete migration worth being aware of before adding more email logic.
 - No test files present despite `@testing-library/*` being installed - `npm test` would run against an empty suite.
