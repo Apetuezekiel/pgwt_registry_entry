@@ -1,6 +1,7 @@
 import './App.css';
 import RegisterFlow from './components/register/RegisterFlow';
 import ThankYou from './components/register/ThankYou';
+import Programme from './components/programme/Programme';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 function App() {
@@ -9,6 +10,7 @@ function App() {
       <Routes>
         <Route path="/register" element={<RegisterFlow />} />
         <Route path="/thanks" element={<ThankYou />} />
+        <Route path="/programme" element={<Programme />} />
         <Route path="*" element={<Navigate to="/register" replace />} />
       </Routes>
     </BrowserRouter>
